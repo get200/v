@@ -1179,6 +1179,10 @@ fn (mut c Checker) type_implements(typ ast.Type, interface_type ast.Type, pos to
 	if typ_sym.name == 'JS.Any' {
 		return true
 	}
+	if typ_sym.kind == .function && inter_sym.name != 'JS.Any' {
+		c.error('cannot implement interface `${inter_sym.name}` using function', pos)
+		return false
+	}
 	if mut inter_sym.info is ast.Interface {
 		mut generic_type := interface_type
 		mut generic_info := inter_sym.info
@@ -4212,7 +4216,9 @@ fn (mut c Checker) ident(mut node ast.Ident) ast.Type {
 			c.error('`mut` is not allowed with `=` (use `:=` to declare a variable)',
 				node.pos)
 		}
-		if mut obj := node.scope.find(node.name) {
+		mut pobj := node.scope.find_ptr(node.name)
+		if pobj != unsafe { nil } {
+			mut obj := *pobj
 			match mut obj {
 				ast.GlobalField {
 					if node.mod == '' {
@@ -4322,7 +4328,9 @@ fn (mut c Checker) ident(mut node ast.Ident) ast.Type {
 		else if !name.contains('.') && node.mod != 'builtin' {
 			name = '${node.mod}.${node.name}'
 		}
-		if mut obj := c.file.global_scope.find(name) {
+		pobj = c.file.global_scope.find_ptr(name)
+		if pobj != unsafe { nil } {
+			mut obj := *pobj
 			match mut obj {
 				ast.GlobalField {
 					node.kind = .global
